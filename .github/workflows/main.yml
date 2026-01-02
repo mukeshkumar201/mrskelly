@@ -1,0 +1,31 @@
+name: Video Uploader Bot
+
+on:
+  workflow_dispatch:      # Manual button run karne ke liye
+  schedule:
+    - cron: '0 */4 * * *' # Har 4 ghante mein check karega
+
+jobs:
+  run-uploader:
+    runs_on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install Libraries
+        run: pip install -r requirements.txt
+
+      - name: Run Bot Script
+        env:
+          G_CLIENT_SECRET: ${{ secrets.G_CLIENT_SECRET }}
+          G_REFRESH_TOKEN: ${{ secrets.G_REFRESH_TOKEN }}
+          DRIVE_QUEUE_FOLDER: ${{ secrets.DRIVE_QUEUE_FOLDER }}
+          DRIVE_DONE_FOLDER: ${{ secrets.DRIVE_DONE_FOLDER }}
+          INSTA_SESSION_ID: ${{ secrets.INSTA_SESSION_ID }}
+        run: python main.py
