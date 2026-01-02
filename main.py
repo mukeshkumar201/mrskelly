@@ -1,45 +1,42 @@
 import os
 import json
-import google_auth_oauthlib.flow
-import googleapiclient.discovery
-import googleapiclient.errors
+import time
 from google.oauth2.credentials import Credentials
+from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from instagrapi import Client
 
-# --- SETUP CREDENTIALS ---
+# --- 1. SETUP GOOGLE LOGIN ---
 def get_google_service(service_name, version):
-    # GitHub Secrets se data uthana
     client_secret_data = json.loads(os.environ['G_CLIENT_SECRET'])
     
-    # JSON structure check (Web vs Installed)
     if 'installed' in client_secret_data:
-        app_info = client_secret_data['installed']
+        config = client_secret_data['installed']
     else:
-        app_info = client_secret_data['web']
+        config = client_secret_data['web']
 
     creds = Credentials(
-        None, # Access token (auto-refresh hoga)
+        None,
         refresh_token=os.environ['G_REFRESH_TOKEN'],
         token_uri="https://oauth2.googleapis.com/token",
-        client_id=app_info['client_id'],
-        client_secret=app_info['client_secret']
+        client_id=config['client_id'],
+        client_secret=config['client_secret']
     )
-    return googleapiclient.discovery.build(service_name, version, credentials=creds)
+    return build(service_name, version, credentials=creds)
 
 # --- MAIN LOGIC ---
 def main():
-    print("🚀 Bot Started...")
-    
-    # 1. Google Drive Service Connect
+    print("🚀 Mr Skelly Bot Started...")
+
+    # -- DRIVE SE VIDEO DHOONDNA --
     drive_service = get_google_service('drive', 'v3')
     queue_folder_id = os.environ['DRIVE_QUEUE_FOLDER']
     done_folder_id = os.environ['DRIVE_DONE_FOLDER']
 
-    # 2. Check for Video in UploadQueue
     results = drive_service.files().list(
         q=f"'{queue_folder_id}' in parents and mimeType contains 'video/' and trashed=false",
-        fields="nextPageToken, files(id, name)"
+        fields="files(id, name)",
+        pageSize=1
     ).execute()
     items = results.get('files', [])
 
@@ -47,75 +44,88 @@ def main():
         print("❌ Koi video nahi mili 'UploadQueue' folder mein.")
         return
 
-    # Sirf pehli video process karenge (ek baar mein ek)
     video_file = items[0]
-    print(f"📥 Video mili: {video_file['name']} (ID: {video_file['id']})")
+    print(f"📥 Video mili: {video_file['name']}")
 
-    # 3. Download Video
+    # Video Download karna
     request = drive_service.files().get_media(fileId=video_file['id'])
-    file_path = video_file['name']
-    
+    file_path = "video.mp4" 
     with open(file_path, "wb") as f:
         f.write(request.execute())
-    print("✅ Video Downloaded successfully.")
+    print("✅ Video Downloaded.")
 
-    # Title set karna (Filename bina extension ke)
-    title = os.path.splitext(video_file['name'])[0]
-    description = f"{title} #shorts #video"
+    # --- 💀 CUSTOM CAPTION & HASHTAGS SETUP 💀 ---
+    
+    # Filename se title (e.g., "MorningVibes")
+    raw_title = os.path.splitext(video_file['name'])[0]
+    
+    # Best Caption for Engagement (Question based)
+    caption_text = (
+        f"Just chilling with some thoughts... 💀☕\n\n"
+        f"👇 Comment the quote that keeps you going!\n\n"
+        f"Double tap if you need a break like this. ❤️\n"
+        f".\n.\n"
+    )
 
-    # --- YOUTUBE UPLOAD ---
+    # Viral Hashtags for Skeleton/Cozy Aesthetic
+    hashtags = (
+        "#mrskelly #skeletonart #cozyvibes #aesthetic #lofi #animation "
+        "#quotes #spooky #chill #reelsinstagram #shorts #viral #meaningful"
+    )
+
+    full_description = caption_text + hashtags
+    youtube_title = f"{raw_title} - Mr Skelly Vibes 💀"
+
+    # -- YOUTUBE UPLOAD --
     try:
-        print("🎥 YouTube par upload kar raha hoon...")
+        print("🎥 YouTube par upload chal raha hai...")
         youtube = get_google_service('youtube', 'v3')
         
-        request_body = {
+        body = {
             'snippet': {
-                'title': title,
-                'description': description,
-                'tags': ['shorts', 'funny', 'viral'],
-                'categoryId': '22' # People & Blogs
+                'title': youtube_title, # Title thoda alag rakha hai
+                'description': full_description,
+                'tags': ['shorts', 'skeleton', 'aesthetic', 'lofi', 'quotes'],
+                'categoryId': '22' 
             },
             'status': {
-                'privacyStatus': 'public', # 'private' karein testing ke liye
+                'privacyStatus': 'public',
                 'selfDeclaredMadeForKids': False
             }
         }
-
+        
         media = MediaFileUpload(file_path, chunksize=-1, resumable=True)
         yt_upload = youtube.videos().insert(
             part="snippet,status",
-            body=request_body,
+            body=body,
             media_body=media
         ).execute()
-
-        print(f"✅ YouTube Upload Done! Video ID: {yt_upload.get('id')}")
+        print(f"✅ YouTube Upload Success! ID: {yt_upload.get('id')}")
     except Exception as e:
-        print(f"❌ YouTube Upload Failed: {e}")
+        print(f"❌ YouTube Failed: {e}")
 
-    # --- INSTAGRAM UPLOAD ---
+    # -- INSTAGRAM UPLOAD --
     try:
-        print("📸 Instagram par upload kar raha hoon...")
+        print("📸 Instagram par upload chal raha hai...")
         cl = Client()
         cl.login_by_sessionid(os.environ['INSTA_SESSION_ID'])
         
-        # Video Upload
-        cl.video_upload(file_path, caption=description)
-        print("✅ Instagram Upload Done!")
+        # Insta par Caption + Hashtags jayega
+        cl.clip_upload(file_path, caption=full_description)
+        print("✅ Instagram Upload Success!")
     except Exception as e:
-        print(f"❌ Instagram Upload Failed: {e}")
+        print(f"❌ Instagram Failed: {e}")
 
-    # --- CLEANUP (Move to Done Folder) ---
-    print("🧹 File ko 'UploadedDone' folder mein move kar raha hoon...")
+    # -- CLEANUP --
+    print("🧹 File move kar raha hoon...")
     drive_service.files().update(
         fileId=video_file['id'],
         addParents=done_folder_id,
-        removeParents=queue_folder_id,
-        fields='id, parents'
+        removeParents=queue_folder_id
     ).execute()
     
-    # Local file delete karein
-    os.remove(file_path)
-    print("🎉 Mission Complete! Bot so raha hai.")
+    os.remove(file_path) # Local file delete
+    print("🎉 Mr Skelly ka kaam ho gaya!")
 
 if __name__ == "__main__":
     main()
