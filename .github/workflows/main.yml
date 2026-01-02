@@ -1,9 +1,10 @@
 name: Video Uploader Bot
 
 on:
-  workflow_dispatch:      # Manual button
+  workflow_dispatch:      # Manual run button
   schedule:
-    - cron: '0 */6 * * *' # Auto run every 6 hours
+    # 4 Baar chalega: 8 AM, 12 PM, 4 PM, 8 PM (India Time)
+    - cron: '30 2,6,10,14 * * *'
 
 jobs:
   run-uploader:
@@ -29,5 +30,5 @@ jobs:
           DRIVE_DONE_FOLDER: ${{ secrets.DRIVE_DONE_FOLDER }}
           INSTA_USERNAME: ${{ secrets.INSTA_USERNAME }}
           INSTA_PASSWORD: ${{ secrets.INSTA_PASSWORD }}
-          INSTA_SETTINGS: ${{ secrets.INSTA_SETTINGS }}  # <-- Ye line zaroori hai!
+          INSTA_SETTINGS: ${{ secrets.INSTA_SETTINGS }}
         run: python main.py
