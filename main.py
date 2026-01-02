@@ -28,11 +28,12 @@ def get_google_service(service_name, version):
 def main():
     print("🚀 Mr Skelly Bot Started...")
 
-    # -- DRIVE SE VIDEO DHOONDNA --
+    # -- DRIVE SETUP --
     drive_service = get_google_service('drive', 'v3')
     queue_folder_id = os.environ['DRIVE_QUEUE_FOLDER']
     done_folder_id = os.environ['DRIVE_DONE_FOLDER']
 
+    # -- CHECK FOR VIDEO --
     results = drive_service.files().list(
         q=f"'{queue_folder_id}' in parents and mimeType contains 'video/' and trashed=false",
         fields="files(id, name)",
@@ -47,32 +48,26 @@ def main():
     video_file = items[0]
     print(f"📥 Video mili: {video_file['name']}")
 
-    # Video Download karna
+    # -- DOWNLOAD VIDEO --
     request = drive_service.files().get_media(fileId=video_file['id'])
     file_path = "video.mp4" 
     with open(file_path, "wb") as f:
         f.write(request.execute())
     print("✅ Video Downloaded.")
 
-    # --- 💀 CUSTOM CAPTION & HASHTAGS SETUP 💀 ---
-    
-    # Filename se title (e.g., "MorningVibes")
+    # -- PREPARE CONTENT --
     raw_title = os.path.splitext(video_file['name'])[0]
     
-    # Best Caption for Engagement (Question based)
     caption_text = (
         f"Just chilling with some thoughts... 💀☕\n\n"
         f"👇 Comment the quote that keeps you going!\n\n"
         f"Double tap if you need a break like this. ❤️\n"
         f".\n.\n"
     )
-
-    # Viral Hashtags for Skeleton/Cozy Aesthetic
     hashtags = (
         "#mrskelly #skeletonart #cozyvibes #aesthetic #lofi #animation "
-        "#quotes #spooky #chill #reelsinstagram #shorts #viral #meaningful"
+        "#quotes #spooky #chill #reelsinstagram #shorts #viral"
     )
-
     full_description = caption_text + hashtags
     youtube_title = f"{raw_title} - Mr Skelly Vibes 💀"
 
@@ -83,10 +78,10 @@ def main():
         
         body = {
             'snippet': {
-                'title': youtube_title, # Title thoda alag rakha hai
+                'title': youtube_title,
                 'description': full_description,
-                'tags': ['shorts', 'skeleton', 'aesthetic', 'lofi', 'quotes'],
-                'categoryId': '22' 
+                'tags': ['shorts', 'skeleton', 'aesthetic', 'lofi'],
+                'categoryId': '22'
             },
             'status': {
                 'privacyStatus': 'public',
@@ -104,17 +99,25 @@ def main():
     except Exception as e:
         print(f"❌ YouTube Failed: {e}")
 
-    # -- INSTAGRAM UPLOAD --
+    # -- INSTAGRAM UPLOAD (LOGIN WITH PASSWORD) --
     try:
-        print("📸 Instagram par upload chal raha hai...")
+        print("📸 Instagram login kar raha hoon...")
         cl = Client()
-        cl.login_by_sessionid(os.environ['INSTA_SESSION_ID'])
         
-        # Insta par Caption + Hashtags jayega
+        # Yahan hum Username aur Password use kar rahe hain
+        user = os.environ['INSTA_USERNAME']
+        passwd = os.environ['INSTA_PASSWORD']
+        
+        cl.login(user, passwd)
+        print("✅ Login Successful!")
+
+        print("📸 Uploading Reel...")
         cl.clip_upload(file_path, caption=full_description)
         print("✅ Instagram Upload Success!")
+        
     except Exception as e:
         print(f"❌ Instagram Failed: {e}")
+        # Agar challenge aaye toh error print hoga
 
     # -- CLEANUP --
     print("🧹 File move kar raha hoon...")
@@ -124,7 +127,8 @@ def main():
         removeParents=queue_folder_id
     ).execute()
     
-    os.remove(file_path) # Local file delete
+    if os.path.exists(file_path):
+        os.remove(file_path)
     print("🎉 Mr Skelly ka kaam ho gaya!")
 
 if __name__ == "__main__":
