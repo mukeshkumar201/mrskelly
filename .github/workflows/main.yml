@@ -3,11 +3,11 @@ name: Video Uploader Bot
 on:
   workflow_dispatch:      # Manual button run karne ke liye
   schedule:
-    - cron: '0 */4 * * *' # Har 4 ghante mein check karega
+    - cron: '0 */6 * * *' # Har 6 ghante mein check karega
 
 jobs:
   run-uploader:
-    runs-on: ubuntu-latest  # Yahan maine change kiya hai (runs_on -> runs-on)
+    runs-on: ubuntu-latest  # ✅ Yahan fix kiya hai
 
     steps:
       - name: Checkout Code
@@ -27,5 +27,7 @@ jobs:
           G_REFRESH_TOKEN: ${{ secrets.G_REFRESH_TOKEN }}
           DRIVE_QUEUE_FOLDER: ${{ secrets.DRIVE_QUEUE_FOLDER }}
           DRIVE_DONE_FOLDER: ${{ secrets.DRIVE_DONE_FOLDER }}
-          INSTA_SESSION_ID: ${{ secrets.INSTA_SESSION_ID }}
+          # Niche wale 2 naye secrets hain jo Login ke liye chahiye
+          INSTA_USERNAME: ${{ secrets.INSTA_USERNAME }}
+          INSTA_PASSWORD: ${{ secrets.INSTA_PASSWORD }}
         run: python main.py
