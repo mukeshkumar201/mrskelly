@@ -1,6 +1,5 @@
 import os
 import json
-import time
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
@@ -9,7 +8,6 @@ from instagrapi import Client
 # --- 1. SETUP GOOGLE LOGIN ---
 def get_google_service(service_name, version):
     client_secret_data = json.loads(os.environ['G_CLIENT_SECRET'])
-    
     if 'installed' in client_secret_data:
         config = client_secret_data['installed']
     else:
@@ -57,17 +55,13 @@ def main():
 
     # -- PREPARE CONTENT --
     raw_title = os.path.splitext(video_file['name'])[0]
-    
     caption_text = (
         f"Just chilling with some thoughts... 💀☕\n\n"
         f"👇 Comment the quote that keeps you going!\n\n"
         f"Double tap if you need a break like this. ❤️\n"
         f".\n.\n"
     )
-    hashtags = (
-        "#mrskelly #skeletonart #cozyvibes #aesthetic #lofi #animation "
-        "#quotes #spooky #chill #reelsinstagram #shorts #viral"
-    )
+    hashtags = "#mrskelly #skeletonart #cozyvibes #aesthetic #lofi #shorts #viral"
     full_description = caption_text + hashtags
     youtube_title = f"{raw_title} - Mr Skelly Vibes 💀"
 
@@ -75,41 +69,36 @@ def main():
     try:
         print("🎥 YouTube par upload chal raha hai...")
         youtube = get_google_service('youtube', 'v3')
-        
         body = {
             'snippet': {
                 'title': youtube_title,
                 'description': full_description,
-                'tags': ['shorts', 'skeleton', 'aesthetic', 'lofi'],
+                'tags': ['shorts', 'skeleton', 'aesthetic'],
                 'categoryId': '22'
             },
-            'status': {
-                'privacyStatus': 'public',
-                'selfDeclaredMadeForKids': False
-            }
+            'status': {'privacyStatus': 'public', 'selfDeclaredMadeForKids': False}
         }
-        
         media = MediaFileUpload(file_path, chunksize=-1, resumable=True)
         yt_upload = youtube.videos().insert(
-            part="snippet,status",
-            body=body,
-            media_body=media
+            part="snippet,status", body=body, media_body=media
         ).execute()
         print(f"✅ YouTube Upload Success! ID: {yt_upload.get('id')}")
     except Exception as e:
         print(f"❌ YouTube Failed: {e}")
 
-    # -- INSTAGRAM UPLOAD (LOGIN WITH PASSWORD) --
+    # -- INSTAGRAM UPLOAD (USING SETTINGS) --
     try:
-        print("📸 Instagram login kar raha hoon...")
+        print("📸 Instagram setup kar raha hoon...")
         cl = Client()
         
-        # Yahan hum Username aur Password use kar rahe hain
-        user = os.environ['INSTA_USERNAME']
-        passwd = os.environ['INSTA_PASSWORD']
+        # GitHub Secret se settings uthana
+        settings_json = os.environ['INSTA_SETTINGS']
+        settings_dict = json.loads(settings_json)
         
-        cl.login(user, passwd)
-        print("✅ Login Successful!")
+        # Load settings and login
+        cl.set_settings(settings_dict)
+        cl.login(os.environ['INSTA_USERNAME'], os.environ['INSTA_PASSWORD'])
+        print("✅ Login Successful (Bypassed IP Block)!")
 
         print("📸 Uploading Reel...")
         cl.clip_upload(file_path, caption=full_description)
@@ -117,7 +106,6 @@ def main():
         
     except Exception as e:
         print(f"❌ Instagram Failed: {e}")
-        # Agar challenge aaye toh error print hoga
 
     # -- CLEANUP --
     print("🧹 File move kar raha hoon...")
@@ -127,8 +115,7 @@ def main():
         removeParents=queue_folder_id
     ).execute()
     
-    if os.path.exists(file_path):
-        os.remove(file_path)
+    if os.path.exists(file_path): os.remove(file_path)
     print("🎉 Mr Skelly ka kaam ho gaya!")
 
 if __name__ == "__main__":
