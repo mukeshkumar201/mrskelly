@@ -1,5 +1,6 @@
 import os
 import json
+import random  # <-- Random captions choose karne ke liye
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
@@ -53,16 +54,29 @@ def main():
         f.write(request.execute())
     print("✅ Video Downloaded.")
 
-    # -- PREPARE CONTENT --
+    # -- PREPARE CONTENT (BEST CAPTIONS & TAGS) --
     raw_title = os.path.splitext(video_file['name'])[0]
-    caption_text = (
-        f"Just chilling with some thoughts... 💀☕\n\n"
-        f"👇 Comment the quote that keeps you going!\n\n"
-        f"Double tap if you need a break like this. ❤️\n"
-        f".\n.\n"
+    
+    # 5-6 Alag-alag captions taaki Instagram bore na ho
+    captions_list = [
+        f"Silence speaks when words can't. 💀🌙\n👇 Comment 'YES' if you feel this.",
+        f"Just a skeleton waiting for something good to happen. 🦴⏳\nDouble tap if you relate! ❤️",
+        f"Life is short, make it spooky. 💀✨\nTag a friend who needs to see this.",
+        f"Current mood: Bone tired but still going. ☕🦴\nWhat keeps you motivated?",
+        f"Vibes only. No skin attached. 🦴💨\nFollow @mrskelly for more vibes.",
+        f"Sometimes you just need a break from reality. 🥀💀\nComment your favorite emoji below!"
+    ]
+    
+    # Randomly ek caption pick karega
+    selected_caption = random.choice(captions_list)
+
+    # Trending Hashtags for this Niche
+    hashtags = (
+        "\n.\n.\n#mrskelly #skeleton #animation #lofi #aesthetic #sad #relatable "
+        "#reels #explore #viral #darkart #cozy #vibes #shorts #spooky"
     )
-    hashtags = "#mrskelly #skeletonart #cozyvibes #aesthetic #lofi #shorts #viral"
-    full_description = caption_text + hashtags
+    
+    full_description = f"{selected_caption}\n{hashtags}"
     youtube_title = f"{raw_title} - Mr Skelly Vibes 💀"
 
     # -- YOUTUBE UPLOAD --
@@ -73,7 +87,7 @@ def main():
             'snippet': {
                 'title': youtube_title,
                 'description': full_description,
-                'tags': ['shorts', 'skeleton', 'aesthetic'],
+                'tags': ['shorts', 'skeleton', 'aesthetic', 'lofi', 'animation'],
                 'categoryId': '22'
             },
             'status': {'privacyStatus': 'public', 'selfDeclaredMadeForKids': False}
@@ -98,10 +112,13 @@ def main():
         # Load settings and login
         cl.set_settings(settings_dict)
         cl.login(os.environ['INSTA_USERNAME'], os.environ['INSTA_PASSWORD'])
-        print("✅ Login Successful (Bypassed IP Block)!")
+        print("✅ Login Successful!")
 
         print("📸 Uploading Reel...")
-        cl.clip_upload(file_path, caption=full_description)
+        
+        # IMPORTANT FIX: 'video_upload' use kiya hai (not clip_upload)
+        cl.video_upload(file_path, caption=full_description)
+        
         print("✅ Instagram Upload Success!")
         
     except Exception as e:
