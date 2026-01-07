@@ -5,7 +5,8 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from instagrapi import Client
-from moviepy.editor import VideoFileClip, AudioFileClip # Music mixing ke liye
+from moviepy.editor import VideoFileClip, AudioFileClip
+from moviepy.audio.fx.all import audio_loop # Music loop karne ke liye
 
 # --- 1. SETUP GOOGLE LOGIN ---
 def get_google_service(service_name, version):
@@ -23,14 +24,12 @@ def get_google_service(service_name, version):
 
 # --- MAIN LOGIC ---
 def main():
-    print("🚀 Mr Skelly Bot (Music Edition) Started...")
+    print("🚀 Mr Skelly Bot (Sound Fix V2) Started...")
 
-    # -- DRIVE SETUP --
     drive_service = get_google_service('drive', 'v3')
     queue_folder_id = os.environ['DRIVE_QUEUE_FOLDER']
     done_folder_id = os.environ['DRIVE_DONE_FOLDER']
 
-    # -- CHECK FOR VIDEO --
     results = drive_service.files().list(
         q=f"'{queue_folder_id}' in parents and mimeType contains 'video/' and trashed=false",
         fields="files(id, name)",
@@ -53,44 +52,57 @@ def main():
         f.write(request.execute())
     print("✅ Video Downloaded.")
 
-    # -- 🎵 STEP: ADD MUSIC FROM GITHUB ASSETS 🎵 --
+    # -- 🎵 STEP: ADD MUSIC (SOUND FIX) 🎵 --
     try:
         print("🎶 Mixing music from assets/music.mp3...")
-        music_file = "assets/music.mp3" # Ensure this file exists in your repo
+        music_path = "assets/music.mp3" 
         
-        v_clip = VideoFileClip(raw_path)
-        a_clip = AudioFileClip(music_file)
+        # FIX 1: audio=False se video ka purana sound hat jayega
+        v_clip = VideoFileClip(raw_path, audio=False) 
+        a_clip = AudioFileClip(music_path)
 
-        # Video ki length ke hisaab se music set karna
+        # FIX 2: Music ki duration adjust karna
         if a_clip.duration > v_clip.duration:
+            # Agar music lamba hai toh kaat do
             a_clip = a_clip.subclip(0, v_clip.duration)
+        else:
+            # Agar music chota hai toh use repeat (loop) karo
+            a_clip = audio_loop(a_clip, duration=v_clip.duration)
         
         final_video = v_clip.set_audio(a_clip)
-        # Fast processing ke liye preset 'ultrafast' use kiya hai
-        final_video.write_videofile(final_path, codec="libx264", audio_codec="aac", logger=None)
+        
+        # FIX 3: Explicitly specify fps and audio codec
+        final_video.write_videofile(
+            final_path, 
+            codec="libx264", 
+            audio_codec="aac", 
+            temp_audiofile='temp-audio.m4a', 
+            remove_temp=True, 
+            fps=v_clip.fps,
+            logger=None
+        )
         
         v_clip.close()
         a_clip.close()
         upload_file = final_path
-        print("✅ Music Merged Successfully!")
+        print("✅ Music Merged Successfully with Fixes!")
     except Exception as e:
-        print(f"⚠️ Music error (original video use kar raha hoon): {e}")
+        print(f"⚠️ Music add nahi ho payi: {e}")
         upload_file = raw_path
 
-    # -- PREPARE CONTENT (RANDOM CAPTIONS & TRENDING TAGS) --
+    # -- PREPARE CONTENT --
     raw_title = os.path.splitext(video_file['name'])[0]
-    
     captions = [
         f"Silence speaks when words can't. 💀🌙\n👇 Comment 'YES' if you feel this.",
-        f"Just a skeleton waiting for something good to happen. 🦴⏳\nDouble tap if you relate!",
-        f"POV: You're finding peace in the lofi vibes. 🥀💀"
+        f"Just a skeleton waiting for something good. 🦴⏳\nDouble tap if you relate!",
+        f"Life is short, make it spooky. 💀✨",
+        f"POV: Peace found in lofi vibes. 🥀💀"
     ]
     
-    # Trending Hashtag Sets
     hashtag_sets = [
-        "#mrskelly #skeleton #lofi #aesthetic #darkaesthetic #reels #viral #shorts",
-        "#skullart #animation #blender #vibes #cozy #fyp #explorepage #relatable",
-        "#darkart #skeletonart #lofihiphop #aestheticvibes #trending #nightvibes"
+        "#mrskelly #skeleton #lofi #aesthetic #trending #viral #reelsindia #shorts",
+        "#skullart #animation #blender #vibes #fyp #explorepage #digitalart #relatable",
+        "#darkart #skeletonart #lofihiphop #aestheticvibes #nightvibes #viralshorts"
     ]
     
     full_description = f"{random.choice(captions)}\n.\n.\n{random.choice(hashtag_sets)}"
@@ -104,7 +116,7 @@ def main():
             'snippet': {
                 'title': youtube_title,
                 'description': full_description,
-                'tags': ['shorts', 'skeleton', 'aesthetic'],
+                'tags': ['shorts', 'skeleton', 'aesthetic', 'lofi'],
                 'categoryId': '22'
             },
             'status': {'privacyStatus': 'public', 'selfDeclaredMadeForKids': False}
@@ -125,14 +137,14 @@ def main():
     except Exception as e: print(f"❌ Instagram Failed: {e}")
 
     # -- CLEANUP --
-    print("🧹 Cleaning up files...")
+    print("🧹 Cleaning up...")
     drive_service.files().update(
         fileId=video_file['id'], addParents=done_folder_id, removeParents=queue_folder_id
     ).execute()
     
     if os.path.exists(raw_path): os.remove(raw_path)
     if os.path.exists(final_path): os.remove(final_path)
-    print("🎉 Done!")
+    print("🎉 Task Completed!")
 
 if __name__ == "__main__":
     main()
