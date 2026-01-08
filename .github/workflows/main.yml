@@ -1,40 +1,54 @@
-name: Video Uploader Bot
+name: Mr Skelly Bot Auto Poster
 
 on:
-  workflow_dispatch:      # Manual run button
   schedule:
-    # 4 Baar chalega: 8 AM, 12 PM, 4 PM, 8 PM (India Time)
-    - cron: '30 2,6,10,14 * * *'
+    # --- 4 Baar Post Karne Ka Schedule (UTC Time) ---
+    # India Time (IST) ke hisaab se:
+    - cron: '30 3 * * *'   # 9:00 AM IST
+    - cron: '30 7 * * *'   # 1:00 PM IST
+    - cron: '30 11 * * *'  # 5:00 PM IST
+    - cron: '30 15 * * *'  # 9:00 PM IST
+  
+  workflow_dispatch:      # Manual 'Run' button
 
 jobs:
-  run-uploader:
+  run_bot:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4 # Latest version use karein
+        uses: actions/checkout@v3
 
-      - name: Set up Python
-        uses: actions/setup-python@v5 # Latest version use karein
+      - name: Setup Python
+        uses: actions/setup-python@v4
         with:
           python-version: '3.10'
-          cache: 'pip' # Dependencies cache karega taaki baar baar install na ho
 
+      # IMPORTANT: Ye step Audio Mixing ke liye zaroori hai
       - name: Install FFmpeg
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg
-        # Ye step MoviePy ke liye sabse zaroori hai
 
-      - name: Install Libraries
-        run: pip install -r requirements.txt
+      - name: Install Libraries (Direct Mode)
+        run: |
+          # Pehle pip update karte hain
+          python -m pip install --upgrade pip setuptools wheel
+          
+          # Direct install taaki version conflict na ho (Stable List)
+          pip install google-api-python-client google-auth-oauthlib google-auth-httplib2 requests moviepy==1.0.3 "numpy<2.0.0" instagrapi==1.17.0
 
-      - name: Run Bot Script
+      - name: Run Main Script
         env:
+          # Google Secrets
           G_CLIENT_SECRET: ${{ secrets.G_CLIENT_SECRET }}
           G_REFRESH_TOKEN: ${{ secrets.G_REFRESH_TOKEN }}
+          
+          # Drive Folders (Make sure secrets ke naam yahi hon)
           DRIVE_QUEUE_FOLDER: ${{ secrets.DRIVE_QUEUE_FOLDER }}
           DRIVE_DONE_FOLDER: ${{ secrets.DRIVE_DONE_FOLDER }}
+          
+          # Instagram Secrets
           INSTA_USERNAME: ${{ secrets.INSTA_USERNAME }}
           INSTA_PASSWORD: ${{ secrets.INSTA_PASSWORD }}
           INSTA_SETTINGS: ${{ secrets.INSTA_SETTINGS }}
