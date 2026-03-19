@@ -156,12 +156,25 @@ def main():
     try:
         print("📸 Instagram Uploading...")
         cl = Client()
-        cl.set_settings(json.loads(os.environ['INSTA_SETTINGS']))
+        
+        # Proxy for avoiding blocks (Optional)
+        proxy = os.environ.get('IG_PROXY')
+        if proxy:
+            cl.set_proxy(proxy)
+            
+        # Session load safely
+        settings = os.environ.get('INSTA_SETTINGS')
+        if settings:
+            cl.set_settings(json.loads(settings))
+            
         cl.login(os.environ['INSTA_USERNAME'], os.environ['INSTA_PASSWORD'])
         
         cl.clip_upload(upload_file, full_description) # clip_upload is safer for Reels
         print("✅ Instagram Upload Success!")
-    except Exception as e: print(f"❌ Instagram Failed: {e}")
+    except Exception as e: 
+        print(f"❌ Instagram Failed: {e}")
+        import traceback
+        traceback.print_exc()
 
     # -- CLEANUP --
     print("🧹 Cleaning up...")
