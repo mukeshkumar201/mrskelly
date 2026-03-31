@@ -2,9 +2,10 @@ name: Mr Skelly Bot Auto Poster
 
 on:
   schedule:
-    # Sirf 2 baar post (naye account ke liye best)
-    - cron: '30 7 * * *'   # 1:00 PM IST
-    - cron: '30 14 * * *'  # 7:30 PM IST (peak time India)
+    # 3 baar post (IST times)
+    - cron: '30 4 * * *'   # 10:00 AM IST
+    - cron: '30 10 * * *'  # 3:30 PM IST
+    - cron: '30 14 * * *'  # 7:30 PM IST (peak time)
 
   workflow_dispatch:      # Manual 'Run' button
 
