@@ -1,16 +1,61 @@
 import os
 import json
-import random
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
-from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
+from googleapiclient.http import MediaFileUpload
 from instagrapi import Client
 
 # --- VIDEO EDITING ---
 from moviepy.editor import VideoFileClip, AudioFileClip, vfx
 from moviepy.audio.fx.all import audio_loop
 
-# --- 1. SETUP GOOGLE LOGIN ---
+# --- AI CAPTION ---
+from groq import Groq
+
+# --- 1. GROQ CAPTION GENERATOR ---
+def generate_caption(video_title):
+    """Har video ke liye AI se unique caption generate karo"""
+    try:
+        client = Groq(api_key=os.environ['GROQ_API_KEY'])
+
+        completion = client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[
+                {
+                    "role": "user",
+                    "content": f"""Instagram page "Mr Skelly" ke liye caption banao.
+Video title: "{video_title}"
+
+Exactly is format mein likho:
+- 1 emotional English line (max 8 words, relatable feeling)
+- 2-3 emojis
+- "Comment if you relate 👇"
+- 5 dots alag alag line pe:
+.
+.
+.
+.
+.
+- Hashtags: #mrskelly #skeleton #aesthetic #viral #reels #explore #trending #fyp #darkart #motivation #skeletonart #lofi #vibes #relatable
+
+Sirf caption do. Koi explanation mat do. Koi quotes mat lagao."""
+                }
+            ],
+            max_tokens=250,
+            temperature=0.9
+        )
+
+        caption = completion.choices[0].message.content.strip()
+        print(f"✅ Caption Generated: {caption[:60]}...")
+        return caption
+
+    except Exception as e:
+        print(f"⚠️ Groq Caption Failed: {e}. Using fallback caption.")
+        # Fallback caption agar Groq fail ho
+        return f"Some things are better left unsaid. 💀🌙\nComment if you relate 👇\n.\n.\n.\n.\n.\n#mrskelly #skeleton #aesthetic #viral #reels #explore #trending #fyp #darkart #motivation"
+
+
+# --- 2. SETUP GOOGLE LOGIN ---
 def get_google_service(service_name, version):
     client_secret_data = json.loads(os.environ['G_CLIENT_SECRET'])
     config = client_secret_data['installed'] if 'installed' in client_secret_data else client_secret_data['web']
@@ -24,49 +69,57 @@ def get_google_service(service_name, version):
     )
     return build(service_name, version, credentials=creds)
 
-# --- 2. PRO EDITING FUNCTION (Speed + Color + Border + Music) ---
+
+# --- 3. VIDEO EDITING FUNCTION ---
 def process_video(raw_path, final_path, music_path):
-    print("🎬 Editing Started: Speed, Color, Border & Music...")
-    
-    # 1. Video Load (Audio hata diya taaki background music dalein)
+    print("🎬 Editing Started...")
+
+    # 1. Video Load (original audio hata ke background music dalenge)
     clip = VideoFileClip(raw_path, audio=False)
-    
-    # 2. Speed 1.1x (Copyright Protection)
-    clip = clip.fx(vfx.speedx, 1.1)
-    
-    # 3. Filter (Color Vibrance)
-    clip = clip.fx(vfx.colorx, 1.2)
-    
-    # 4. Border (White Gap - Aesthetic Look)
-    clip = clip.margin(top=40, bottom=40, left=40, right=40, color=(255, 255, 255))
-    
-    # 5. Background Music Logic
+
+    # 2. Speed 1.05x (copyright protection - subtle change)
+    clip = clip.fx(vfx.speedx, 1.05)
+
+    # 3. Color Boost (thoda zyada vibrant)
+    clip = clip.fx(vfx.colorx, 1.3)
+
+    # 4. Brightness + Contrast (copyright protection ke liye)
+    #    White border HATAYA gaya hai - full screen experience ke liye
+    clip = clip.fx(vfx.lum_contrast, lum=10, contrast=0.1)
+
+    # 5. Edges se thoda crop (border ki jagah, full screen bana rehta hai)
+    clip = clip.crop(x1=8, y1=8, x2=clip.w - 8, y2=clip.h - 8)
+
+    # 6. Original size pe resize wapas
+    clip = clip.resize((1080, 1920))
+
+    # 7. Background Music
     try:
         print(f"🎶 Adding Music: {music_path}")
         audio = AudioFileClip(music_path)
-        
-        # Audio ko video ki length ke hisaab se loop ya cut karna
+
         if audio.duration < clip.duration:
             audio = audio_loop(audio, duration=clip.duration)
         else:
             audio = audio.subclip(0, clip.duration)
-            
+
         clip = clip.set_audio(audio)
     except Exception as e:
-        print(f"⚠️ Music Error (Skipping Music): {e}")
+        print(f"⚠️ Music Error (Skipping): {e}")
 
-    # 6. Save Final Video
+    # 8. Save
     clip.write_videofile(
-        final_path, 
-        codec="libx264", 
-        audio_codec="aac", 
+        final_path,
+        codec="libx264",
+        audio_codec="aac",
         fps=24,
-        temp_audiofile='temp-audio.m4a', 
-        remove_temp=True, 
-        verbose=False, 
+        temp_audiofile='temp-audio.m4a',
+        remove_temp=True,
+        verbose=False,
         logger=None
     )
     print("✅ Video Processing Complete!")
+
 
 # --- MAIN LOGIC ---
 def main():
@@ -97,8 +150,8 @@ def main():
     video_file = items[0]
     raw_path = "raw_video.mp4"
     final_path = "final_video.mp4"
-    music_path = "assets/background.mp3" # Ensure this file exists in repo
-    
+    music_path = "assets/background.mp3"
+
     print(f"📥 Found Video: {video_file['name']}")
 
     # -- DOWNLOAD VIDEO --
@@ -115,23 +168,11 @@ def main():
         print(f"❌ Editing Failed: {e}. Uploading Raw Video.")
         upload_file = raw_path
 
-    # -- PREPARE CAPTIONS --
+    # -- AI SE CAPTION GENERATE KARO --
     raw_title = os.path.splitext(video_file['name'])[0]
-    
-    captions = [
-        f"Silence speaks when words can't. 💀🌙\n👇 Comment 'YES' if you feel this.",
-        f"Just a skeleton waiting for something good. 🦴⏳\nDouble tap if you relate!",
-        f"Life is short, make it spooky. 💀✨",
-        f"POV: Found my peace in the dark. 🥀💀"
-    ]
-    
-    hashtag_sets = [
-        "#mrskelly #skeleton #lofi #aesthetic #trending #viral #reels #explore",
-        "#skullart #animation #blender #vibes #fyp #explorepage #relatable",
-        "#darkart #skeletonart #lofihiphop #moody #viralshorts #trendingreels"
-    ]
-    
-    full_description = f"{random.choice(captions)}\n.\n.\n{random.choice(hashtag_sets)}"
+    print(f"🤖 Generating AI Caption for: {raw_title}")
+    full_description = generate_caption(raw_title)
+
     youtube_title = f"{raw_title} - Mr Skelly Vibes 💀"
 
     # -- YOUTUBE UPLOAD --
@@ -142,36 +183,34 @@ def main():
             'snippet': {
                 'title': youtube_title,
                 'description': full_description,
-                'tags': ['shorts', 'skeleton', 'aesthetic', 'lofi'],
-                'categoryId': '22' # People & Blogs (Best for general clips)
+                'tags': ['shorts', 'skeleton', 'aesthetic', 'lofi', 'mrskelly'],
+                'categoryId': '22'
             },
             'status': {'privacyStatus': 'public', 'selfDeclaredMadeForKids': False}
         }
         media = MediaFileUpload(upload_file, chunksize=-1, resumable=True)
         youtube.videos().insert(part="snippet,status", body=body, media_body=media).execute()
         print("✅ YouTube Upload Success!")
-    except Exception as e: print(f"❌ YouTube Failed: {e}")
+    except Exception as e:
+        print(f"❌ YouTube Failed: {e}")
 
     # -- INSTAGRAM UPLOAD --
     try:
         print("📸 Instagram Uploading...")
         cl = Client()
-        
-        # Proxy for avoiding blocks (Optional)
+
         proxy = os.environ.get('IG_PROXY')
         if proxy:
             cl.set_proxy(proxy)
-            
-        # Session load safely
+
         settings = os.environ.get('INSTA_SETTINGS')
         if settings:
             cl.set_settings(json.loads(settings))
-            
+
         cl.login(os.environ['INSTA_USERNAME'], os.environ['INSTA_PASSWORD'])
-        
-        cl.clip_upload(upload_file, full_description) # clip_upload is safer for Reels
+        cl.clip_upload(upload_file, full_description)
         print("✅ Instagram Upload Success!")
-    except Exception as e: 
+    except Exception as e:
         print(f"❌ Instagram Failed: {e}")
         import traceback
         traceback.print_exc()
@@ -180,14 +219,19 @@ def main():
     print("🧹 Cleaning up...")
     try:
         drive_service.files().update(
-            fileId=video_file['id'], addParents=done_folder_id, removeParents=queue_folder_id
+            fileId=video_file['id'],
+            addParents=done_folder_id,
+            removeParents=queue_folder_id
         ).execute()
     except Exception as e:
         print(f"⚠️ Drive Move Failed: {e}")
 
-    if os.path.exists(raw_path): os.remove(raw_path)
-    if os.path.exists(final_path): os.remove(final_path)
+    if os.path.exists(raw_path):
+        os.remove(raw_path)
+    if os.path.exists(final_path):
+        os.remove(final_path)
     print("🎉 All Done! Bot Finished.")
+
 
 if __name__ == "__main__":
     main()
