@@ -108,43 +108,37 @@ def generate_caption(video_title, video_description=None):
 
 {context}
 
-Write a high-engagement SEO-optimized Instagram caption in EXACTLY this format:
+Write a high-engagement SEO-optimized Instagram caption in EXACTLY this format — do NOT skip any part:
 
-LINE 1: One powerful emotional hook line (8-12 words, must make people stop scrolling)
+[HOOK] One powerful emotional hook line (8-12 words)
 
-LINE 2-3: 2-3 lines expanding the feeling — relatable, deep, human. Like a mini story or thought. Max 20 words total.
+[BODY] 2 short relatable lines expanding the feeling (max 15 words total)
 
-LINE 4: One call to action — creative, not boring. Examples: "Save this for your 3am thoughts 🕰️" or "Tag someone who needs this 💀" or "Comment your feeling in one word 👇"
+[CTA] One creative call to action line. End with: "Follow @mr.skelly0 for daily dark wisdom 💀"
 
-LINE 5: Empty line
-
-LINE 6-9: 4 lines of dots:
+[DOTS]
 .
 .
 .
 .
 
-LINE 10: 20 hashtags — smart SEO mix:
-- 3 branded: #mrskelly #skeleton #skeletonart  
-- 4 high-volume: choose from #viral #reels #explore #trending #fyp #reelsinstagram #instareels
-- 6 mid-volume niche: based on video mood/content
-- 4 low-competition specific: very specific to this video's exact feeling
-- 3 trending/seasonal if applicable
+[HASHTAGS] Write exactly 20 hashtags on one line:
+Always include: #mrskelly #skeleton #skeletonart
+Then add 17 more based on video mood — mix of #viral #reels #explore #trending #fyp and niche tags relevant to the video content.
 
-RULES:
-- Caption must feel human and emotional, NOT like AI wrote it
-- Hook line must create curiosity or strong emotion
-- Every caption must be completely unique
-- Hashtags must be fresh mix every time, only 3 branded ones repeat
-- No quotes around caption
-- No explanations, just the caption"""
+IMPORTANT: You MUST include all 4 sections — hook, body, CTA, dots, hashtags. Never stop before hashtags."""
                     }
                 ],
-                max_tokens=500,
+                max_tokens=1000,
                 temperature=1.0
             )
 
             caption = completion.choices[0].message.content.strip()
+
+            # Safety check — agar hashtags nahi aaye toh force add karo
+            if '#mrskelly' not in caption:
+                caption += "\n.\n.\n.\n.\n#mrskelly #skeleton #skeletonart #viral #fyp #reels #explore #trending #darkart #aesthetic #motivation #relatable #lofi #skeletonanimation #deepthoughts #sadvibes #emotionalhealing #nightvibes #3amthoughts #darkaesthetic"
+
             print(f"✅ Caption Generated: {caption[:60]}...")
             return caption
 
