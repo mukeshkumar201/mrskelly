@@ -1,6 +1,7 @@
 import os
 import json
 import time
+import base64
 
 # --- PIL FIX (Pillow 10+ ne ANTIALIAS hata diya, ye patch zaroori hai) ---
 import PIL.Image
@@ -19,18 +20,82 @@ from moviepy.audio.fx.all import audio_loop
 # --- AI CAPTION ---
 from groq import Groq
 
-# --- 1. GROQ CAPTION GENERATOR ---
-def generate_caption(video_title):
-    """Har video ke liye AI se unique caption generate karo — 3 retries ke saath"""
+
+# --- 1. VIDEO SE FRAME NIKALO AUR AI SE PADHO ---
+def analyze_video_frame(video_path):
+    """Video ka middle frame nikalo aur Groq Vision se samjho"""
+    try:
+        clip = VideoFileClip(video_path)
+
+        # Video ke beech ka frame lo (sabse informative hota hai)
+        mid_time = clip.duration / 2
+        frame = clip.get_frame(mid_time)
+        clip.close()
+
+        # Frame ko JPEG mein save karo
+        frame_path = "temp_frame.jpg"
+        PIL.Image.fromarray(frame).save(frame_path, "JPEG", quality=85)
+
+        # Base64 mein convert karo (API ke liye)
+        with open(frame_path, "rb") as f:
+            frame_b64 = base64.b64encode(f.read()).decode("utf-8")
+
+        os.remove(frame_path)
+
+        # Groq Vision se frame analyze karwao
+        client = Groq(api_key=os.environ['GROQ_API_KEY'])
+        response = client.chat.completions.create(
+            model="meta-llama/llama-4-scout-17b-16e-instruct",
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{frame_b64}"
+                            }
+                        },
+                        {
+                            "type": "text",
+                            "text": """This is a frame from a skeleton animation video for Instagram.
+Please tell me:
+1. What text/quote is written on the screen (if any)
+2. What is the overall mood/feeling (dark, sad, lonely, hopeful, etc)
+3. What is the skeleton character doing (sitting, walking, crying, etc)
+
+Give a short description in 2-3 sentences only. Focus on the emotion and message."""
+                        }
+                    ]
+                }
+            ],
+            max_tokens=150
+        )
+
+        description = response.choices[0].message.content.strip()
+        print(f"🎯 Video Analysis: {description[:80]}...")
+        return description
+
+    except Exception as e:
+        print(f"⚠️ Video Analysis Failed: {e}. Using filename.")
+        return None
+
+# --- 2. GROQ CAPTION GENERATOR ---
+def generate_caption(video_title, video_description=None):
 
     FALLBACK_CAPTIONS = [
-        "Some things hurt more in silence. 💀🌙\nComment if you relate 👇\n.\n.\n.\n.\n.\n#mrskelly #skeleton #aesthetic #viral #reels #explore #trending #fyp #darkart #motivation",
-        "Not all wounds are visible. 🥀💀\nComment if you relate 👇\n.\n.\n.\n.\n.\n#mrskelly #skeleton #aesthetic #viral #reels #explore #trending #fyp #skeletonart #lofi",
-        "Still standing, barely. 💀⏳\nComment if you relate 👇\n.\n.\n.\n.\n.\n#mrskelly #skeleton #aesthetic #viral #reels #explore #trending #fyp #darkart #vibes",
-        "Peace found in the darkest places. 🌑💀\nComment if you relate 👇\n.\n.\n.\n.\n.\n#mrskelly #skeleton #aesthetic #viral #reels #explore #trending #fyp #relatable #motivation",
+        "Some things hurt more in silence. 💀🌙\nWe carry our pain quietly, smiling on the outside.\nSave this for your 3am thoughts 🖤\n.\n.\n.\n.\n#mrskelly #skeleton #skeletonart #viral #fyp #reels #darkaesthetic #alone #deepthoughts #relatable #nightvibes #sadreels #emotionalhealing #3amthoughts #mentalhealth",
+        "Not all wounds are visible. 🥀💀\nSome scars live deep inside, unseen but always felt.\nTag someone who needs this reminder 💀\n.\n.\n.\n.\n#mrskelly #skeleton #skeletonart #viral #explore #reels #darkart #lofi #motivation #aesthetic #healingjourney #sadvibes #relatable #innerpeace #skeletonanimation",
+        "Still standing, barely. 💀⏳\nBroken but breathing — that itself is strength.\nComment one word that describes your mood 👇\n.\n.\n.\n.\n#mrskelly #skeleton #skeletonart #trending #fyp #reels #darkthoughts #aesthetic #motivation #lofihiphop #emotionaldamage #vibes #relatable #nightowl #deepfeeling",
     ]
 
-    for attempt in range(3):  # 3 baar try karega
+    # Video description se better context banao
+    if video_description:
+        context = f"Video content analysis: {video_description}"
+    else:
+        context = f"Video title: {video_title}"
+
+    for attempt in range(3):
         try:
             client = Groq(api_key=os.environ['GROQ_API_KEY'])
 
@@ -39,26 +104,44 @@ def generate_caption(video_title):
                 messages=[
                     {
                         "role": "user",
-                        "content": f"""Instagram page "Mr Skelly" ke liye caption banao.
-Video title: "{video_title}"
+                        "content": f"""You are an expert Instagram SEO specialist managing "Mr Skelly" — a dark aesthetic skeleton animation page with motivational and emotional content.
 
-Exactly is format mein likho:
-- 1 emotional English line (max 8 words, relatable feeling)
-- 2-3 emojis
-- "Comment if you relate 👇"
-- 5 dots alag alag line pe:
-.
-.
-.
-.
-.
-- Hashtags: #mrskelly #skeleton #aesthetic #viral #reels #explore #trending #fyp #darkart #motivation #skeletonart #lofi #vibes #relatable
+{context}
 
-Sirf caption do. Koi explanation mat do. Koi quotes mat lagao."""
+Write a high-engagement SEO-optimized Instagram caption in EXACTLY this format:
+
+LINE 1: One powerful emotional hook line (8-12 words, must make people stop scrolling)
+
+LINE 2-3: 2-3 lines expanding the feeling — relatable, deep, human. Like a mini story or thought. Max 20 words total.
+
+LINE 4: One call to action — creative, not boring. Examples: "Save this for your 3am thoughts 🕰️" or "Tag someone who needs this 💀" or "Comment your feeling in one word 👇"
+
+LINE 5: Empty line
+
+LINE 6-9: 4 lines of dots:
+.
+.
+.
+.
+
+LINE 10: 20 hashtags — smart SEO mix:
+- 3 branded: #mrskelly #skeleton #skeletonart  
+- 4 high-volume: choose from #viral #reels #explore #trending #fyp #reelsinstagram #instareels
+- 6 mid-volume niche: based on video mood/content
+- 4 low-competition specific: very specific to this video's exact feeling
+- 3 trending/seasonal if applicable
+
+RULES:
+- Caption must feel human and emotional, NOT like AI wrote it
+- Hook line must create curiosity or strong emotion
+- Every caption must be completely unique
+- Hashtags must be fresh mix every time, only 3 branded ones repeat
+- No quotes around caption
+- No explanations, just the caption"""
                     }
                 ],
-                max_tokens=250,
-                temperature=0.9
+                max_tokens=500,
+                temperature=1.0
             )
 
             caption = completion.choices[0].message.content.strip()
@@ -68,7 +151,7 @@ Sirf caption do. Koi explanation mat do. Koi quotes mat lagao."""
         except Exception as e:
             print(f"⚠️ Groq Attempt {attempt + 1}/3 Failed: {e}")
             if attempt < 2:
-                time.sleep(5)  # 5 second wait karke dobara try
+                time.sleep(5)
             else:
                 import random
                 fallback = random.choice(FALLBACK_CAPTIONS)
@@ -189,10 +272,14 @@ def main():
         print(f"❌ Editing Failed: {e}. Uploading Raw Video.")
         upload_file = raw_path
 
-    # -- AI SE CAPTION GENERATE KARO --
+    # -- AI SE VIDEO ANALYZE KARO (frame dekh ke) --
     raw_title = os.path.splitext(video_file['name'])[0]
-    print(f"🤖 Generating AI Caption for: {raw_title}")
-    full_description = generate_caption(raw_title)
+    print(f"🔍 Analyzing video content...")
+    video_description = analyze_video_frame(upload_file)
+
+    # -- AI SE CAPTION GENERATE KARO --
+    print(f"🤖 Generating AI Caption...")
+    full_description = generate_caption(raw_title, video_description)
 
     youtube_title = f"{raw_title} - Mr Skelly Vibes 💀"
 
