@@ -1,5 +1,12 @@
 import os
 import json
+import time
+
+# --- PIL FIX (Pillow 10+ ne ANTIALIAS hata diya, ye patch zaroori hai) ---
+import PIL.Image
+if not hasattr(PIL.Image, 'ANTIALIAS'):
+    PIL.Image.ANTIALIAS = PIL.Image.LANCZOS
+
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
@@ -14,16 +21,25 @@ from groq import Groq
 
 # --- 1. GROQ CAPTION GENERATOR ---
 def generate_caption(video_title):
-    """Har video ke liye AI se unique caption generate karo"""
-    try:
-        client = Groq(api_key=os.environ['GROQ_API_KEY'])
+    """Har video ke liye AI se unique caption generate karo — 3 retries ke saath"""
 
-        completion = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            messages=[
-                {
-                    "role": "user",
-                    "content": f"""Instagram page "Mr Skelly" ke liye caption banao.
+    FALLBACK_CAPTIONS = [
+        "Some things hurt more in silence. 💀🌙\nComment if you relate 👇\n.\n.\n.\n.\n.\n#mrskelly #skeleton #aesthetic #viral #reels #explore #trending #fyp #darkart #motivation",
+        "Not all wounds are visible. 🥀💀\nComment if you relate 👇\n.\n.\n.\n.\n.\n#mrskelly #skeleton #aesthetic #viral #reels #explore #trending #fyp #skeletonart #lofi",
+        "Still standing, barely. 💀⏳\nComment if you relate 👇\n.\n.\n.\n.\n.\n#mrskelly #skeleton #aesthetic #viral #reels #explore #trending #fyp #darkart #vibes",
+        "Peace found in the darkest places. 🌑💀\nComment if you relate 👇\n.\n.\n.\n.\n.\n#mrskelly #skeleton #aesthetic #viral #reels #explore #trending #fyp #relatable #motivation",
+    ]
+
+    for attempt in range(3):  # 3 baar try karega
+        try:
+            client = Groq(api_key=os.environ['GROQ_API_KEY'])
+
+            completion = client.chat.completions.create(
+                model="llama-3.1-8b-instant",
+                messages=[
+                    {
+                        "role": "user",
+                        "content": f"""Instagram page "Mr Skelly" ke liye caption banao.
 Video title: "{video_title}"
 
 Exactly is format mein likho:
@@ -39,20 +55,25 @@ Exactly is format mein likho:
 - Hashtags: #mrskelly #skeleton #aesthetic #viral #reels #explore #trending #fyp #darkart #motivation #skeletonart #lofi #vibes #relatable
 
 Sirf caption do. Koi explanation mat do. Koi quotes mat lagao."""
-                }
-            ],
-            max_tokens=250,
-            temperature=0.9
-        )
+                    }
+                ],
+                max_tokens=250,
+                temperature=0.9
+            )
 
-        caption = completion.choices[0].message.content.strip()
-        print(f"✅ Caption Generated: {caption[:60]}...")
-        return caption
+            caption = completion.choices[0].message.content.strip()
+            print(f"✅ Caption Generated: {caption[:60]}...")
+            return caption
 
-    except Exception as e:
-        print(f"⚠️ Groq Caption Failed: {e}. Using fallback caption.")
-        # Fallback caption agar Groq fail ho
-        return f"Some things are better left unsaid. 💀🌙\nComment if you relate 👇\n.\n.\n.\n.\n.\n#mrskelly #skeleton #aesthetic #viral #reels #explore #trending #fyp #darkart #motivation"
+        except Exception as e:
+            print(f"⚠️ Groq Attempt {attempt + 1}/3 Failed: {e}")
+            if attempt < 2:
+                time.sleep(5)  # 5 second wait karke dobara try
+            else:
+                import random
+                fallback = random.choice(FALLBACK_CAPTIONS)
+                print(f"⚠️ Using fallback caption.")
+                return fallback
 
 
 # --- 2. SETUP GOOGLE LOGIN ---
