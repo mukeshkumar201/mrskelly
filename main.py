@@ -110,11 +110,11 @@ def generate_caption(video_title, video_description=None):
 
 Write a high-engagement SEO-optimized Instagram caption in EXACTLY this format — do NOT skip any part:
 
-[HOOK] One powerful emotional hook line (8-12 words)
+One powerful emotional hook line (8-12 words)
 
-[BODY] 2 short relatable lines expanding the feeling (max 15 words total)
+2 short relatable lines expanding the feeling (max 15 words total)
 
-[CTA] One creative call to action line. End with: "Follow @mr.skelly0 for daily dark wisdom 💀"
+ One creative call to action line. End with: "Follow @mr.skelly0 for daily dark wisdom 💀"
 
 [DOTS]
 .
@@ -122,7 +122,7 @@ Write a high-engagement SEO-optimized Instagram caption in EXACTLY this format �
 .
 .
 
-[HASHTAGS] Write exactly 20 hashtags on one line:
+Write exactly 20 hashtags on one line:
 Always include: #mrskelly #skeleton #skeletonart
 Then add 17 more based on video mood — mix of #viral #reels #explore #trending #fyp and niche tags relevant to the video content.
 
